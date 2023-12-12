@@ -52,6 +52,6 @@ openssl x509 -req -days 36500 -in server.csr -CA ca.crt -CAkey ca.key -CAcreates
 ```
 
 ```
-./bin/server --cert="tls/server.crt" --key="tls/server.key"
-./bin/client --ca="tls/ca.crt" --addr="127.0.0.1:50051"
+go run server/server.go  --cert="tls/server.crt" --key="tls/server.key"
+go run client/client.go --ca="tls/ca.crt" --addr="https://127.0.0.1:50051"
 ```
