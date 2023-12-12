@@ -91,14 +91,14 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 
 	fmt.Printf("doHTTPConnectHandshake.req: %#v\r\n",req)
 	if err := sendHTTPRequest(ctx, req, conn); err != nil {
-		fmt.Errorf("failed to write the HTTP request: %v", err)
+		fmt.Printf("failed to write the HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to write the HTTP request: %v", err)
 	}
 	fmt.Printf("send req ok\r\n")
 	r := bufio.NewReader(conn)
 	resp, err := http.ReadResponse(r, req)
 	if err != nil {
-		fmt.Errorf("reading server HTTP response: %v\r\n", err)
+		fmt.Printf("reading server HTTP response: %v\r\n", err)
 		return nil, fmt.Errorf("reading server HTTP response: %v", err)
 	}
 	fmt.Printf("read response ok\r\n")
@@ -106,10 +106,10 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 	if resp.StatusCode != http.StatusOK {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err != nil {
-			fmt.Errorf("failed to do connect handshake, response: %q\r\n", dump) 
+			fmt.Printf("failed to do connect handshake, response: %q\r\n", dump) 
 			return nil, fmt.Errorf("failed to do connect handshake, status code: %s", resp.Status)
 		}
-		fmt.Errorf("failed to do connect handshake, response: %q\r\n", dump)
+		fmt.Printf("failed to do connect handshake, response: %q\r\n", dump)
 		return nil, fmt.Errorf("failed to do connect handshake, response: %q", dump)
 	}
 
