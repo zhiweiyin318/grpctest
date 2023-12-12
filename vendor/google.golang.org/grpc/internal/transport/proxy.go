@@ -44,7 +44,7 @@ func mapAddress(address string) (*url.URL, error) {
 			Host:   address,
 		},
 	}
-	fmt.Printf("mapAddress: req.URL:%#v\n",req.URL)
+	fmt.Printf("mapAddress: req.URL:%#v\r\n",req.URL)
 	url, err := httpProxyFromEnvironment(req)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 		req.Header.Add(proxyAuthHeaderKey, "Basic "+basicAuth(u, p))
 	}
 
-	fmt.Printf("doHTTPConnectHandshake.req: %#v\n",req)
+	fmt.Printf("doHTTPConnectHandshake.req: %#v\r\n",req)
 	if err := sendHTTPRequest(ctx, req, conn); err != nil {
 		fmt.Errorf("failed to write the HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to write the HTTP request: %v", err)
@@ -98,21 +98,21 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 	r := bufio.NewReader(conn)
 	resp, err := http.ReadResponse(r, req)
 	if err != nil {
-		fmt.Errorf("reading server HTTP response: %v\n", err)
+		fmt.Errorf("reading server HTTP response: %v\r\n", err)
 		return nil, fmt.Errorf("reading server HTTP response: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err != nil {
-			fmt.Errorf("failed to do connect handshake, response: %q\n", dump) 
+			fmt.Errorf("failed to do connect handshake, response: %q\r\n", dump) 
 			return nil, fmt.Errorf("failed to do connect handshake, status code: %s", resp.Status)
 		}
-		fmt.Errorf("failed to do connect handshake, response: %q\n", dump)
+		fmt.Errorf("failed to do connect handshake, response: %q\r\n", dump)
 		return nil, fmt.Errorf("failed to do connect handshake, response: %q", dump)
 	}
 
-	fmt.Printf("do connect handshake successfully\n")
+	fmt.Printf("do connect handshake successfully\r\n")
 	
 	return &bufConn{Conn: conn, r: r}, nil
 }
@@ -127,7 +127,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 		return nil, err
 	}
 	if proxyURL != nil {
-		fmt.Printf("proxyDial.proxyURL: %#v\n",proxyURL)
+		fmt.Printf("proxyDial.proxyURL: %#v\r\n",proxyURL)
 		newAddr = proxyURL.Host
 	}
 
