@@ -37,7 +37,7 @@ func main() {
 	}
 	var opts []grpc.ServerOption
 	if *cert != "" && *key != "" {
-		creds, err := credentials.NewServerTLSFromFile("tls/server.crt", "tls/server.key")
+		creds, err := credentials.NewServerTLSFromFile(*cert, *key)
 		if err != nil {
 			log.Fatalf("Failed to generate credentials %v", err)
 		}
