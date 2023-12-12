@@ -2,3 +2,4 @@ bin/*
 tls/*.crt
 tls/*.key
 tls/*.csr
+tls/*.srl
