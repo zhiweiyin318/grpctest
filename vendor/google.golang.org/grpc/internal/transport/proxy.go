@@ -44,7 +44,7 @@ func mapAddress(address string) (*url.URL, error) {
 			Host:   address,
 		},
 	}
-	fmt.Printf("mapAddress: req.URL:%+v\n",req.URL)
+	fmt.Printf("mapAddress: req.URL:%#v\n",req.URL)
 	url, err := httpProxyFromEnvironment(req)
 	if err != nil {
 		return nil, err
@@ -89,8 +89,9 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 		req.Header.Add(proxyAuthHeaderKey, "Basic "+basicAuth(u, p))
 	}
 
-	fmt.Printf("doHTTPConnectHandshake.req: %+v\n",req)
+	fmt.Printf("doHTTPConnectHandshake.req: %#v\n",req)
 	if err := sendHTTPRequest(ctx, req, conn); err != nil {
+		fmt.Errorf("failed to write the HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to write the HTTP request: %v", err)
 	}
 
@@ -126,7 +127,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 		return nil, err
 	}
 	if proxyURL != nil {
-		fmt.Printf("proxyDial.proxyURL: %+v\n",proxyURL)
+		fmt.Printf("proxyDial.proxyURL: %#v\n",proxyURL)
 		newAddr = proxyURL.Host
 	}
 
@@ -144,6 +145,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 func sendHTTPRequest(ctx context.Context, req *http.Request, conn net.Conn) error {
 	req = req.WithContext(ctx)
 	if err := req.Write(conn); err != nil {
+		fmt.Errorf("failed to write the HTTP request: %v", err)
 		return fmt.Errorf("failed to write the HTTP request: %v", err)
 	}
 	return nil
