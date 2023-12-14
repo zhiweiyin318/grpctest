@@ -123,10 +123,11 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 	}
 
 	if proxyURL == nil {
-		return nil, err
+		return (&net.Dialer{}).DialContext(ctx, "tcp", newAddr)
 	}
 
 	newAddr = proxyURL.Host
+
 	if proxyURL.Scheme == "https" {
 		var ca []byte
 		ca, err = os.ReadFile("tls/ca.crt")
@@ -147,6 +148,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 		if err != nil {
 			return
 		}
+
 	} else {
 		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", newAddr)
 		if err != nil {
@@ -154,8 +156,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 		}
 	}
 
-	conn, err = doHTTPConnectHandshake(ctx, conn, addr, proxyURL, grpcUA)
-	return conn, err
+	return doHTTPConnectHandshake(ctx, conn, addr, proxyURL, grpcUA)
 }
 
 func sendHTTPRequest(ctx context.Context, req *http.Request, conn net.Conn) error {
