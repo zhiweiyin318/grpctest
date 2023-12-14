@@ -21,6 +21,8 @@ package transport
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -28,6 +30,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 )
 
 const proxyAuthHeaderKey = "Proxy-Authorization"
@@ -118,19 +121,41 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 	if err != nil {
 		return nil, err
 	}
-	if proxyURL != nil {
-		newAddr = proxyURL.Host
+
+	if proxyURL == nil {
+		return nil, err
 	}
 
-	conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", newAddr)
-	if err != nil {
-		return
+	newAddr = proxyURL.Host
+	if proxyURL.Scheme == "https" {
+		var ca []byte
+		ca, err = os.ReadFile("tls/ca.crt")
+		if err != nil {
+			return nil, err
+		}
+		cp := x509.NewCertPool()
+		if !cp.AppendCertsFromPEM(ca) {
+			return nil, fmt.Errorf("credentials: failed to append certificates")
+		}
+
+		conf := &tls.Config{
+			InsecureSkipVerify: false,
+			RootCAs:            cp,
+		}
+
+		conn, err = tls.Dial("tcp", newAddr, conf)
+		if err != nil {
+			return
+		}
+	} else {
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", newAddr)
+		if err != nil {
+			return
+		}
 	}
-	if proxyURL != nil {
-		// proxy is disabled if proxyURL is nil.
-		conn, err = doHTTPConnectHandshake(ctx, conn, addr, proxyURL, grpcUA)
-	}
-	return
+
+	conn, err = doHTTPConnectHandshake(ctx, conn, addr, proxyURL, grpcUA)
+	return conn, err
 }
 
 func sendHTTPRequest(ctx context.Context, req *http.Request, conn net.Conn) error {
