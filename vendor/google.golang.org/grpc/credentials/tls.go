@@ -138,6 +138,10 @@ func (c *tlsCreds) OverrideServerName(serverNameOverride string) error {
 	return nil
 }
 
+func (c *tlsCreds) TLSConfig() *tls.Config {
+	return c.config.Clone()
+}
+
 // NewTLS uses c to construct a TransportCredentials based on TLS.
 func NewTLS(c *tls.Config) TransportCredentials {
 	tc := &tlsCreds{credinternal.CloneTLSConfig(c)}

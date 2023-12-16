@@ -27,7 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-
+	"crypto/tls"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/attributes"
 	icredentials "google.golang.org/grpc/internal/credentials"
@@ -166,6 +166,9 @@ type TransportCredentials interface {
 	// Deprecated: use grpc.WithAuthority instead. Will be supported
 	// throughout 1.x.
 	OverrideServerName(string) error
+
+	// TLSConfig provides the tls Config of this TransportCredentials.
+	TLSConfig() *tls.Config
 }
 
 // Bundle is a combination of TransportCredentials and PerRPCCredentials.

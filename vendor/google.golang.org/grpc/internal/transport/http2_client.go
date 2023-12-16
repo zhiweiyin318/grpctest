@@ -149,7 +149,7 @@ type http2Client struct {
 	logger       *grpclog.PrefixLogger
 }
 
-func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr resolver.Address, useProxy bool, grpcUA string) (net.Conn, error) {
+func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr resolver.Address, useProxy bool, transportCreds credentials.TransportCredentials, grpcUA string) (net.Conn, error) {
 	address := addr.Addr
 	networkType, ok := networktype.Get(addr)
 	if fn != nil {
@@ -174,7 +174,7 @@ func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error
 		networkType, address = parseDialTarget(address)
 	}
 	if networkType == "tcp" && useProxy {
-		return proxyDial(ctx, address, grpcUA)
+		return proxyDial(ctx, address, grpcUA, transportCreds)
 	}
 	return (&net.Dialer{}).DialContext(ctx, networkType, address)
 }
@@ -213,7 +213,18 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 	// address specific arbitrary data to reach custom dialers and credential handshakers.
 	connectCtx = icredentials.NewClientHandshakeInfoContext(connectCtx, credentials.ClientHandshakeInfo{Attributes: addr.Attributes})
 
-	conn, err := dial(connectCtx, opts.Dialer, addr, opts.UseProxy, opts.UserAgent)
+	transportCreds := opts.TransportCredentials
+	perRPCCreds := opts.PerRPCCredentials
+
+	if b := opts.CredsBundle; b != nil {
+		if t := b.TransportCredentials(); t != nil {
+			transportCreds = t
+		}
+		if t := b.PerRPCCredentials(); t != nil {
+			perRPCCreds = append(perRPCCreds, t)
+		}
+	}
+	conn, err := dial(connectCtx, opts.Dialer, addr, opts.UseProxy, transportCreds, opts.UserAgent)
 	if err != nil {
 		if opts.FailOnNonTempDialError {
 			return nil, connectionErrorf(isTemporary(err), err, "transport: error while dialing: %v", err)
@@ -271,17 +282,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 		isSecure bool
 		authInfo credentials.AuthInfo
 	)
-	transportCreds := opts.TransportCredentials
-	perRPCCreds := opts.PerRPCCredentials
 
-	if b := opts.CredsBundle; b != nil {
-		if t := b.TransportCredentials(); t != nil {
-			transportCreds = t
-		}
-		if t := b.PerRPCCredentials(); t != nil {
-			perRPCCreds = append(perRPCCreds, t)
-		}
-	}
 	if transportCreds != nil {
 		conn, authInfo, err = transportCreds.ClientHandshake(connectCtx, addr.ServerName, conn)
 		if err != nil {

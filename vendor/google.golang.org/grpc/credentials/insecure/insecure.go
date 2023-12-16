@@ -23,7 +23,7 @@ package insecure
 import (
 	"context"
 	"net"
-
+	"crypto/tls"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -57,6 +57,10 @@ func (insecureTC) Clone() credentials.TransportCredentials {
 }
 
 func (insecureTC) OverrideServerName(string) error {
+	return nil
+}
+
+func (insecureTC) TLSConfig() *tls.Config {
 	return nil
 }
 

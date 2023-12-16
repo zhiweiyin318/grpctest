@@ -22,15 +22,14 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 )
 
 const proxyAuthHeaderKey = "Proxy-Authorization"
@@ -115,7 +114,7 @@ func doHTTPConnectHandshake(ctx context.Context, conn net.Conn, backendAddr stri
 // proxyDial dials, connecting to a proxy first if necessary. Checks if a proxy
 // is necessary, dials, does the HTTP CONNECT handshake, and returns the
 // connection.
-func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, err error) {
+func proxyDial(ctx context.Context, addr string, grpcUA string, transportCreds credentials.TransportCredentials) (conn net.Conn, err error) {
 	newAddr := addr
 	proxyURL, err := mapAddress(addr)
 	if err != nil {
@@ -129,21 +128,7 @@ func proxyDial(ctx context.Context, addr string, grpcUA string) (conn net.Conn, 
 	newAddr = proxyURL.Host
 
 	if proxyURL.Scheme == "https" {
-		var ca []byte
-		ca, err = os.ReadFile("tls/ca.crt")
-		if err != nil {
-			return nil, err
-		}
-		cp := x509.NewCertPool()
-		if !cp.AppendCertsFromPEM(ca) {
-			return nil, fmt.Errorf("credentials: failed to append certificates")
-		}
-
-		conf := &tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            cp,
-		}
-
+		conf := transportCreds.TLSConfig()
 		conn, err = tls.Dial("tcp", newAddr, conf)
 		if err != nil {
 			return
