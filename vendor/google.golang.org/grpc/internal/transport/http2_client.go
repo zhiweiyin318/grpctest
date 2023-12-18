@@ -36,6 +36,7 @@ import (
 	"golang.org/x/net/http2/hpack"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/channelz"
 	icredentials "google.golang.org/grpc/internal/credentials"
 	"google.golang.org/grpc/internal/grpclog"
@@ -43,7 +44,7 @@ import (
 	"google.golang.org/grpc/internal/grpcutil"
 	imetadata "google.golang.org/grpc/internal/metadata"
 	istatus "google.golang.org/grpc/internal/status"
-	"google.golang.org/grpc/internal/syscall"
+	isyscall "google.golang.org/grpc/internal/syscall"
 	"google.golang.org/grpc/internal/transport/networktype"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
@@ -149,7 +150,8 @@ type http2Client struct {
 	logger       *grpclog.PrefixLogger
 }
 
-func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr resolver.Address, useProxy bool, transportCreds credentials.TransportCredentials, grpcUA string) (net.Conn, error) {
+func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr resolver.Address, useProxy bool,
+	grpcUA string, transportCreds credentials.TransportCredentials) (net.Conn, error) {
 	address := addr.Addr
 	networkType, ok := networktype.Get(addr)
 	if fn != nil {
@@ -176,7 +178,7 @@ func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error
 	if networkType == "tcp" && useProxy {
 		return proxyDial(ctx, address, grpcUA, transportCreds)
 	}
-	return (&net.Dialer{}).DialContext(ctx, networkType, address)
+	return internal.NetDialerWithTCPKeepalive().DialContext(ctx, networkType, address)
 }
 
 func isTemporary(err error) bool {
@@ -207,12 +209,6 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 		}
 	}()
 
-	// gRPC, resolver, balancer etc. can specify arbitrary data in the
-	// Attributes field of resolver.Address, which is shoved into connectCtx
-	// and passed to the dialer and credential handshaker. This makes it possible for
-	// address specific arbitrary data to reach custom dialers and credential handshakers.
-	connectCtx = icredentials.NewClientHandshakeInfoContext(connectCtx, credentials.ClientHandshakeInfo{Attributes: addr.Attributes})
-
 	transportCreds := opts.TransportCredentials
 	perRPCCreds := opts.PerRPCCredentials
 
@@ -224,7 +220,14 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 			perRPCCreds = append(perRPCCreds, t)
 		}
 	}
-	conn, err := dial(connectCtx, opts.Dialer, addr, opts.UseProxy, transportCreds, opts.UserAgent)
+
+	// gRPC, resolver, balancer etc. can specify arbitrary data in the
+	// Attributes field of resolver.Address, which is shoved into connectCtx
+	// and passed to the dialer and credential handshaker. This makes it possible for
+	// address specific arbitrary data to reach custom dialers and credential handshakers.
+	connectCtx = icredentials.NewClientHandshakeInfoContext(connectCtx, credentials.ClientHandshakeInfo{Attributes: addr.Attributes})
+
+	conn, err := dial(connectCtx, opts.Dialer, addr, opts.UseProxy, opts.UserAgent, transportCreds)
 	if err != nil {
 		if opts.FailOnNonTempDialError {
 			return nil, connectionErrorf(isTemporary(err), err, "transport: error while dialing: %v", err)
@@ -273,7 +276,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 	}
 	keepaliveEnabled := false
 	if kp.Time != infinity {
-		if err = syscall.SetTCPUserTimeout(conn, kp.Timeout); err != nil {
+		if err = isyscall.SetTCPUserTimeout(conn, kp.Timeout); err != nil {
 			return nil, connectionErrorf(false, err, "transport: failed to set TCP_USER_TIMEOUT: %v", err)
 		}
 		keepaliveEnabled = true
@@ -494,8 +497,9 @@ func (t *http2Client) newStream(ctx context.Context, callHdr *CallHdr) *Stream {
 
 func (t *http2Client) getPeer() *peer.Peer {
 	return &peer.Peer{
-		Addr:     t.remoteAddr,
-		AuthInfo: t.authInfo, // Can be nil
+		Addr:      t.remoteAddr,
+		AuthInfo:  t.authInfo, // Can be nil
+		LocalAddr: t.localAddr,
 	}
 }
 

@@ -24,10 +24,11 @@ package credentials // import "google.golang.org/grpc/credentials"
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
-	"crypto/tls"
+
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/attributes"
 	icredentials "google.golang.org/grpc/internal/credentials"
